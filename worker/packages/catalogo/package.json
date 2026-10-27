@@ -1,0 +1,10 @@
+{
+  "name": "@catalogo/typespec",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Decoradores del catálogo (@responsable, @tipo, @vigencia) y emisor de metadatos + XSD + Protobuf.",
+  "main": "src/index.js",
+  "exports": { ".": { "default": "./src/index.js", "typespec": "./lib/main.tsp" } },
+  "tspMain": "lib/main.tsp",
+  "peerDependencies": { "@typespec/compiler": "^1.17.0" }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "esquemas-ejemplo",
+  "private": true,
+  "description": "Entorno de autoría: instala el compilador y la librería del catálogo para escribir .tsp con soporte del editor (extensión TypeSpec de VS Code).",
+  "type": "module",
+  "scripts": { "check": "tsp compile chile/basicos/tipos.tsp chile/comunes/personas.tsp chile/documentos/certificados.tsp chile/servicios/personas/personas-api.tsp --no-emit" },
+  "dependencies": {
+    "@catalogo/typespec": "file:../worker/packages/catalogo",
+    "@typespec/compiler": "1.17.0",
+    "@typespec/http": "1.17.0",
+    "@typespec/rest": "0.87.0",
+    "@typespec/openapi": "1.17.0",
+    "@typespec/versioning": "0.87.0"
+  }
+}

@@ -1,0 +1,95 @@
+# Plataforma de Repositorio y Catálogo de Metaesquemas
+#
+#   web ─► api (lectura, solo del repositorio precalculado) ─► volumen "store" (solo lectura)
+#   api ─► volumen "inbox" (encola .tsp) ─► worker ─► compila (TypeSpec) ─► volumen "store"
+#
+# Redes:  edge     -> única expuesta al exterior (solo Nginx)
+#         internal -> sin salida a Internet (internal: true)
+# El worker compila código subido por usuarios: corre SIN red (network_mode: none) y sin secretos.
+# Endurecimiento de contenedores opcional: docker-compose.hardened.yml
+name: metaesquemas
+
+x-common: &common
+  restart: unless-stopped
+
+services:
+  # Fija el propietario (uid 1000) de los volúmenes compartidos: Docker no siempre copia el
+  # propietario de la imagen (p. ej. si el primer contenedor que los monta lo hace en solo lectura).
+  init:
+    image: busybox:1.37
+    user: "0:0"
+    network_mode: none
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /data/store /data/inbox /data/jobs && chown -R 1000:1000 /data/store /data/inbox /data/jobs && chmod -R u+rwX,g+rX,o+rX /data/store"]
+    volumes: [store:/data/store, inbox:/data/inbox, jobs:/data/jobs]
+
+  api:
+    <<: *common
+    build: ./backend
+    depends_on:
+      init: { condition: service_completed_successfully }
+    env_file: [.env]
+    environment:
+      ADDR: ":8080"
+      STORE_DIR: /data/store
+      INBOX_DIR: /data/inbox
+      JOBS_DIR: /data/jobs
+      GEOIP_DB: "${GEOIP_DB:-}"
+      TRUSTED_PROXIES: "172.16.0.0/12,10.0.0.0/8"
+    volumes:
+      - store:/data/store:ro          # lectura directa de lo precalculado: la API nunca lo modifica
+      - inbox:/data/inbox             # cola de trabajos hacia el worker
+      - jobs:/data/jobs               # estado de trabajos
+      - ./deploy/geoip:/geo:ro
+    networks: [internal]
+    deploy: { resources: { limits: { cpus: "1.0", memory: 256m } } }
+
+  worker:
+    <<: *common
+    build: ./worker
+    depends_on:
+      init: { condition: service_completed_successfully }
+    network_mode: none                # compila entradas no confiables: sin red
+    environment:
+      DATA_DIR: /data
+      POLL_MS: "1000"
+      COMPILE_TIMEOUT_MS: "${COMPILE_TIMEOUT_MS:-60000}"
+      COMPILE_MEMORY_MB: "${COMPILE_MEMORY_MB:-768}"
+    volumes:
+      - store:/data/store
+      - inbox:/data/inbox
+      - jobs:/data/jobs
+    tmpfs: ["/data/work:size=512m,uid=1000,gid=1000"]
+    deploy: { resources: { limits: { cpus: "2.0", memory: 1536m } } }
+
+  web:
+    <<: *common
+    build: ./frontend
+    depends_on: [api]
+    ports: ["${WEB_PORT:-8080}:8080"]  # TLS lo termina el balanceador/CDN o se monta en Nginx
+    networks: [edge, internal]
+
+  # Carga de los esquemas de ejemplo:  docker compose --profile seed run --rm seed
+  # Otros archivos: coloque un árbol de .tsp en ./samples (o monte otro directorio) y ejecute lo mismo.
+  seed:
+    build: ./worker
+    profiles: ["seed"]
+    depends_on:
+      init: { condition: service_completed_successfully }
+    network_mode: none
+    environment: { DATA_DIR: /data }
+    volumes:
+      - inbox:/data/inbox
+      - jobs:/data/jobs
+      - ./samples:/samples:ro
+    command: ["node", "src/cli.js", "seed", "/samples", "--submit"]
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+
+volumes:
+  store: {}
+  inbox: {}
+  jobs: {}

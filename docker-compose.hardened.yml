@@ -1,0 +1,18 @@
+# Endurecimiento OPCIONAL (úselo solo después de comprobar que el despliegue base arranca):
+#   docker compose -f docker-compose.yml -f docker-compose.hardened.yml up -d
+# Si un contenedor falla con "exec ...: operation not permitted", el host (LXC/Proxmox, NAS, runtime
+# antiguo, AppArmor/seccomp restrictivo) no admite alguna de estas opciones: quítelas de a una.
+x-hardening: &hardening
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  read_only: true
+  tmpfs: ["/tmp:size=16m,nosuid"]
+
+services:
+  api: *hardening
+  worker:
+    <<: *hardening
+    tmpfs: ["/tmp:size=64m,nosuid", "/data/work:size=512m,uid=1000,gid=1000"]
+  web:
+    <<: *hardening
+    tmpfs: ["/tmp:size=16m", "/var/cache/nginx:size=32m", "/var/run:size=1m"]

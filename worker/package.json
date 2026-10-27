@@ -1,0 +1,19 @@
+{
+  "name": "metaesquemas-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Worker de ingesta y compilación TypeSpec (AOT): genera OpenAPI, JSON Schema, XSD y Protobuf al cargar cada archivo.",
+  "scripts": { "start": "node src/main.js", "test": "node --test test/*.test.js" },
+  "dependencies": {
+    "@catalogo/typespec": "file:./packages/catalogo",
+    "@typespec/compiler": "1.17.0",
+    "@typespec/http": "1.17.0",
+    "@typespec/json-schema": "1.17.0",
+    "@typespec/openapi": "1.17.0",
+    "@typespec/openapi3": "1.17.0",
+    "@typespec/rest": "0.87.0",
+    "@typespec/versioning": "0.87.0"
+  },
+  "engines": { "node": ">=20" }
+}
